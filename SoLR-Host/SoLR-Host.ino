@@ -13,9 +13,9 @@
 // LoRa Configuration
 #define SoLR_FREQ 433E6
 #define SoLR_PA_BOOST_TXP 20
-#define SoLR_RFO_TXP 15
-#define SoLR_SPREAD 12
-#define SoLR_BANDWIDTH 62.5E3
+#define SoLR_RFO_TXP 14
+#define SoLR_SPREAD 7
+#define SoLR_BANDWIDTH 500E3
 
 // Connection Configuration
 #define SoLR_CONN_TO 1000UL
@@ -44,6 +44,8 @@ void sendBuffer() {
   LoRa.write(remoteAddress);             // add destination address
   LoRa.write(localAddress);              // add sender address
   LoRa.write(0x01);                      // add packet type (type 0x01: regular data)
+//  Serial.write(charBuffer, bufferIndex+1);
+//  Serial.println();
   LoRa.write(charBuffer, bufferIndex+1); // add payload
   memset(charBuffer, 0, SoLR_BUFSIZE);
   bufferIndex = 0;
@@ -79,6 +81,7 @@ void receiveData(int packetSize) {
   
   switch (type) {
     case 0x00: // if packet is a beacon
+      Serial.println("Beacon Received!");
       break;
       
     case 0x01: // if packet is a regular data
@@ -107,15 +110,16 @@ void setup() {
   Serial.begin(SoLR_BAUD);          // initialize serial
   while (!Serial);
 
+  LoRa.setTxPower(SoLR_PA_BOOST_TXP, PA_OUTPUT_PA_BOOST_PIN);
+  LoRa.setTxPower(SoLR_RFO_TXP, PA_OUTPUT_RFO_PIN);
+  LoRa.setSpreadingFactor(SoLR_SPREAD);
+  LoRa.setSignalBandwidth(SoLR_BANDWIDTH);
   LoRa.setPins(ss, rst, dio0);      // set CS, reset, IRQ pin
   if (!LoRa.begin(SoLR_FREQ)) {     // initialize ratio at freq hz
     Serial.println("LoRa init failed. Check your connections.");
     while (true);                   // if failed, do nothing
   }
-  LoRa.setTxPower(SoLR_PA_BOOST_TXP, PA_OUTPUT_PA_BOOST_PIN);
-  LoRa.setTxPower(SoLR_RFO_TXP, PA_OUTPUT_RFO_PIN);
-  LoRa.setSpreadingFactor(SoLR_SPREAD);
-  LoRa.setSignalBandwidth(SoLR_BANDWIDTH);
+  
 }
 
 void loop() {
@@ -123,6 +127,7 @@ void loop() {
     loadToBuffer();
   }
   if ((millis() - lastRecvTime > SoLR_CONN_TO) && (millis() - lastBeacTime > SoLR_BEACON_DELAY)) {
+//    Serial.println("Sending Beacon...");
     sendBeacon();
   }
   receiveData(LoRa.parsePacket());
