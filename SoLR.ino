@@ -11,15 +11,15 @@
 
 // Serial Configuration
 #define SoLR_BAUD 1200
-#define SoLR_BUFSIZE 200
+#define SoLR_BUFSIZE 250
 
 
 // LoRa Configuration
 #define SoLR_FREQ 433E6
 #define SoLR_PA_BOOST_TXP 20
 #define SoLR_RFO_TXP 14
-#define SoLR_SPREAD 7
-#define SoLR_BANDWIDTH 500E3
+#define SoLR_SPREAD 10
+#define SoLR_BANDWIDTH 125E3
 
 // Connection Configuration
 #define SoLR_CONN_TO 1000UL
@@ -59,7 +59,7 @@ void sendBuffer() {
   LoRa.write(charBuffer, bufferIndex+1); // add payload
   memset(charBuffer, 0, SoLR_BUFSIZE);
   bufferIndex = 0;
-  LoRa.endPacket();                      // finish packet and send it
+  LoRa.endPacket(true);                      // finish packet and send it asyncronously
   lastSendTime = millis();
 }
 
@@ -82,20 +82,16 @@ void receiveData(int packetSize) {
   if (recipient != localAddress || sender != remoteAddress) return;
   
   byte serialBuffer[SoLR_BUFSIZE] = {0};
-  int serialBufferIndex = 0;
-  
-  while (LoRa.available()) {
-    serialBuffer[serialBufferIndex] = LoRa.read();
-    serialBufferIndex++;
-  }
+  int serialBufferLength = LoRa.available();
+  LoRa.readBytes(serialBuffer, serialBufferLength);
   
   switch (type) {
     case 0x00: // if packet is a beacon
-      Serial.println("Beacon Received!");
+//      Serial.println("Beacon Received!");
       break;
       
     case 0x01: // if packet is a regular data
-      Serial.write(serialBuffer, serialBufferIndex + 1);
+      Serial.write(serialBuffer, serialBufferLength);
       break;
       
     default: // if packet type is invalid
@@ -107,13 +103,15 @@ void receiveData(int packetSize) {
 }
 
 void loadToBuffer() {
-  while (Serial.available()) {
-    if (bufferIndex >= SoLR_BUFSIZE) {
-      return;
-    }
-    charBuffer[bufferIndex] = Serial.read();
-    bufferIndex++;
+  int availableBytes = Serial.available();
+  int toRead = 0;
+  if (availableBytes >= SoLR_BUFSIZE - bufferIndex) {
+    toRead = SoLR_BUFSIZE - bufferIndex;
+  } else {
+    toRead = availableBytes;
   }
+  Serial.readBytes(&charBuffer[bufferIndex], toRead);
+  bufferIndex += toRead;
 }
 
 void setup() {
