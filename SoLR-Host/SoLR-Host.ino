@@ -6,9 +6,13 @@
 #define rst 16
 #define dio0 4
 
+// Comment out the following line when compiling for client
+//#define SoLR_HOST
+
 // Serial Configuration
-#define SoLR_BAUD 300
-#define SoLR_BUFSIZE 120
+#define SoLR_BAUD 1200
+#define SoLR_BUFSIZE 200
+
 
 // LoRa Configuration
 #define SoLR_FREQ 433E6
@@ -21,11 +25,17 @@
 #define SoLR_CONN_TO 1000UL
 #define SoLR_BEACON_DELAY 1000UL
 
+#ifdef SoLR_HOST
 byte localAddress = 0xDD;     // address of this device
 byte remoteAddress = 0xBB;      // destination to send to
+#else
+byte localAddress = 0xBB;     // address of this device
+byte remoteAddress = 0xDD;      // destination to send to
+#endif
 
 byte charBuffer[SoLR_BUFSIZE] = {0};
 int bufferIndex = 0;
+
 
 unsigned long lastRecvTime = 0;
 unsigned long lastBeacTime = 0;
@@ -126,10 +136,12 @@ void loop() {
   if (bufferIndex < SoLR_BUFSIZE) {
     loadToBuffer();
   }
+  #ifdef SoLR_HOST
   if ((millis() - lastRecvTime > SoLR_CONN_TO) && (millis() - lastBeacTime > SoLR_BEACON_DELAY)) {
 //    Serial.println("Sending Beacon...");
     sendBeacon();
   }
+  #endif
   receiveData(LoRa.parsePacket());
 
 }
