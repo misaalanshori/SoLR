@@ -16,10 +16,6 @@
 
 // LoRa Configuration
 #define SoLR_FREQ 433E6
-#define SoLR_PA_BOOST_TXP 20
-#define SoLR_RFO_TXP 14
-#define SoLR_SPREAD 10
-#define SoLR_BANDWIDTH 125E3
 
 // Connection Configuration
 #define SoLR_CONN_TO 1000UL
@@ -118,10 +114,6 @@ void setup() {
   Serial.begin(SoLR_BAUD);          // initialize serial
   while (!Serial);
 
-  LoRa.setTxPower(SoLR_PA_BOOST_TXP, PA_OUTPUT_PA_BOOST_PIN);
-  LoRa.setTxPower(SoLR_RFO_TXP, PA_OUTPUT_RFO_PIN);
-  LoRa.setSpreadingFactor(SoLR_SPREAD);
-  LoRa.setSignalBandwidth(SoLR_BANDWIDTH);
   LoRa.setPins(ss, rst, dio0);      // set CS, reset, IRQ pin
   if (!LoRa.begin(SoLR_FREQ)) {     // initialize ratio at freq hz
     Serial.println("LoRa init failed. Check your connections.");

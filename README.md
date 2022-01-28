@@ -1,3 +1,4 @@
+**Stable Branch**
 # Serial over LoRa
 A full serial line connection between 2 devices using LoRa. Currently the code is set up for 1200bps with a 250bytes buffer, in theory we should be able to get up to 2000bps safely without extra buffering code that i would need to figure out first. Though Linux console only works at 300bps currently (not yet sure why)
 
