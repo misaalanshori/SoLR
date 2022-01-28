@@ -1,3 +1,4 @@
+#include "LoopbackStream.h"
 #include <SPI.h>
 #include <LoRa.h>
 
@@ -7,11 +8,14 @@
 #define dio0 4
 
 // Comment out the following line when compiling for client
-#define SoLR_HOST
+// #define SoLR_HOST
+
+#define SoLR_DEBUGMODE
 
 // Serial Configuration
-#define SoLR_BAUD 1200
-#define SoLR_BUFSIZE 250
+#define SoLR_BAUD 9600
+#define SoLR_BUFSIZE 5120
+#define SoLR_PAYLOAD_SIZE 16
 
 // LoRa Configuration
 #define SoLR_FREQ 433E6
@@ -22,8 +26,8 @@
 #define SoLR_CR 8
 
 // Connection Configuration
-#define SoLR_CONN_TO 2000UL
-#define SoLR_BEACON_DELAY 1750UL
+#define SoLR_CONN_TO 3000UL
+#define SoLR_BEACON_DELAY 1500UL
 #define SoLR_PACKET_DELAY 1UL
 
 // Flip address for Host and Client
@@ -35,17 +39,14 @@ byte localAddress = 0xBB;     // address of this device
 byte remoteAddress = 0xDD;      // destination to send to
 #endif
 
-byte charBuffer[SoLR_BUFSIZE] = {0};
-int bufferIndex = 0;
-
 int receivedBytes = 0;
-
 int sendFlag = 0;
 
 unsigned long lastRecvTime = 0;
 unsigned long lastBeacTime = 0;
 unsigned long lastSendTime = 0;
 
+LoopbackStream buffer(SoLR_BUFSIZE);
 
 // Data Format
 #define headerLength 3 
@@ -55,18 +56,32 @@ unsigned long lastSendTime = 0;
 // rest: data
 
 void sendBuffer() {
+  int bufferAvailable = buffer.available();
+  Serial.println("t2");
+  if (bufferAvailable > SoLR_PAYLOAD_SIZE) {
+    bufferAvailable = SoLR_PAYLOAD_SIZE;
+  }
+  byte store[bufferAvailable];
+  buffer.readBytes(store, bufferAvailable);
+  Serial.println("t3");
   LoRa.beginPacket();                    // start packet
   LoRa.write(remoteAddress);             // add destination address
   LoRa.write(localAddress);              // add sender address
   LoRa.write(0x01);                      // add packet type (type 0x01: regular data)
-//  Serial.write(charBuffer, bufferIndex+1);
-//  Serial.println();
-  LoRa.write(charBuffer, bufferIndex+1); // add payload
-  memset(charBuffer, 0, SoLR_BUFSIZE);
-  bufferIndex = 0;
-  LoRa.endPacket();                      // finish packet and send it asyncronously
-  LoRa.receive();
+  Serial.println("t4");
+  LoRa.write(store, bufferAvailable);    // add payload
+  Serial.println("t5");
+  LoRa.endPacket(true);                      // finish packet and send it asyncronously
+  Serial.println("t6");
+
   lastSendTime = millis();
+
+  #ifdef SoLR_DEBUGMODE
+  Serial.print("Received This: ");
+  Serial.write(store, bufferAvailable);
+  Serial.println();
+  Serial.println("t8");
+  #endif
 }
 
 void sendBeacon() {
@@ -75,8 +90,7 @@ void sendBeacon() {
   LoRa.write(localAddress);              // add sender address
   LoRa.write(0x00);                      // add packet type (type 0x00: beacon)
   LoRa.write(0xff);                      // add payload
-  LoRa.endPacket();                      // finish packet and send it
-  LoRa.receive();
+  LoRa.endPacket(true);                      // finish packet and send it
   lastBeacTime = millis();
 }
 
@@ -92,9 +106,16 @@ void receiveData(int packetSize) {
   int serialBufferLength = LoRa.available();
   LoRa.readBytes(serialBuffer, serialBufferLength);
   
+  #ifdef SoLR_DEBUGMODE
+  Serial.print(recipient, HEX);
+  Serial.println(type, HEX);
+  #endif
+
   switch (type) {
     case 0x00: // if packet is a beacon
-//      Serial.println("Beacon Received!");
+      #ifdef SoLR_DEBUGMODE    
+      Serial.println("Beacon Received!");
+      #endif
       break;
       
     case 0x01: // if packet is a regular data
@@ -110,64 +131,103 @@ void receiveData(int packetSize) {
 }
 
 void loadToBuffer() {
+  Serial.println("sl-2");
   int availableBytes = Serial.available();
-  int toRead = 0;
-  if (availableBytes >= SoLR_BUFSIZE - bufferIndex) {
-    toRead = SoLR_BUFSIZE - bufferIndex;
-  } else {
-    toRead = availableBytes;
-  }
-  Serial.readBytes(&charBuffer[bufferIndex], toRead);
-  bufferIndex += toRead;
+  byte store[availableBytes];
+  Serial.println("sl-3");
+  Serial.readBytes(store, availableBytes);
+  Serial.println("sl-4");
+  buffer.write(store, availableBytes);
+  Serial.println("sl-5");
 }
 
 void setReceiveFlag(int recvBytes) {
-//  Serial.print("Received Something, Length: ");
-//  Serial.println(recvBytes);
+  if (recvBytes < 1) {
+    return;
+  }
+  #ifdef SoLR_DEBUGMODE
+  Serial.print("Received Something, Length: ");
+  Serial.println(recvBytes);
+  #endif
   receivedBytes = recvBytes;
 }
 
+void onTx() {
+  LoRa.receive();
+}
+
 void setup() {
+  #ifdef SoLR_DEBUGMODE
+  Serial.println("Boot Up");
+  #endif
   Serial.begin(SoLR_BAUD);          // initialize serial
   while (!Serial);
-
-  
+  #ifdef SoLR_DEBUGMODE
+  Serial.println("Init LoRa");
+  #endif
   LoRa.setPins(ss, rst, dio0);      // set CS, reset, IRQ pin
   if (!LoRa.begin(SoLR_FREQ)) {     // initialize ratio at freq hz
     Serial.println("LoRa init failed. Check your connections.");
     while (true);                   // if failed, do nothing
   } else {
+  #ifdef SoLR_DEBUGMODE
+  Serial.println("LoRa Conf");
+  #endif
   LoRa.setTxPower(SoLR_TXPOWER);
   LoRa.setGain(SoLR_GAIN);
   LoRa.setSpreadingFactor(SoLR_SPREAD);
   LoRa.setSignalBandwidth(SoLR_BANDWIDTH);
   LoRa.setCodingRate4(SoLR_CR);
-  LoRa.onReceive(setReceiveFlag);
-  LoRa.receive();
+  // LoRa.onReceive(setReceiveFlag);
+  // LoRa.onTxDone(onTx);
+  // LoRa.receive();
   }
   sendBeacon();
 }
 
 void loop() {
-  if (bufferIndex < SoLR_BUFSIZE) {
+  // #ifdef SoLR_DEBUGMODE
+  // Serial.print(" | ");
+  // Serial.print(Serial.available());
+  // Serial.print(" | ");
+  // Serial.print(receivedBytes);
+  // Serial.print(" | ");
+  // Serial.print(sendFlag);
+  // Serial.println();
+  // #endif
+
+  setReceiveFlag(LoRa.parsePacket());
+
+  if (Serial.available()) {
+    Serial.println("sl-1");
     loadToBuffer();
+    Serial.println("sl-6");
+  }
+
+  if (sendFlag == 1) {
+    Serial.println("t1");
+    sendBuffer();
+    Serial.println("t9");
+
+    sendFlag = 0;
   }
   
   #ifdef SoLR_HOST
   if ((millis() - lastRecvTime > SoLR_CONN_TO) && (millis() - lastBeacTime > SoLR_BEACON_DELAY)) {
-//    Serial.println("Sending Beacon...");
+    #ifdef SoLR_DEBUGMODE
+    Serial.println("Sending Beacon...");
+    #endif
     sendBeacon();
   }
   #endif
   
   if (receivedBytes > 1) {
+    Serial.println("rv1");
     receiveData(receivedBytes);
     receivedBytes = 0;
+    Serial.println("rv2");
   }
 
-  if (sendFlag == 1 && millis() - lastRecvTime > SoLR_PACKET_DELAY) {
-    sendBuffer();
-    sendFlag = 0;
-  }
+  
 
 }
