@@ -1,5 +1,6 @@
 #include <SPI.h>
 #include <LoRa.h>
+#include "LoopbackStream/src/LoopbackStream.h"
 
 #define CONFIG
 #ifdef CONFIG
@@ -31,6 +32,8 @@
 byte channelID  = 0xFB;
 
 #endif
+
+LoopbackStream buffer(5120);
 
 void setup() {
   Serial.begin(SoLR_BAUD);          // initialize serial

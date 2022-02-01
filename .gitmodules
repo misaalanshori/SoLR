@@ -1,0 +1,3 @@
+[submodule "LoopbackStream"]
+	path = LoopbackStream
+	url = https://github.com/misaalanshori/ArduinoBufferedStreams
