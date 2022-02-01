@@ -16,7 +16,7 @@ The hardware is 2 pairs of a Wemos ESP8266 module connected to a Ra-02 SX1278 mo
 
 ## How to use
 0. Connect your LoRa module according to the above configuration or reconfigure with your own setup
-1. Clone the repo recursively (--recursive)
+1. Clone the repo
 2. Upload the code to one of the modules, this module will be the host
 3. Comment out the `#define SoLR_HOST` Line, and Upload that to the second module. This module will be the client
 4. Connect both modules to a serial terminal and if they connected properly you can start sending text/data between the 2 modules
